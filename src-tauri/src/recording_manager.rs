@@ -29,14 +29,16 @@ pub struct RecordingManager {
 
 impl RecordingManager {
     pub fn new(app_handle: &AppHandle) -> Result<Self, anyhow::Error> {
-        if std::env::var("OPENAI_API_KEY").is_err() {
+        let api_key = std::env::var("OPENAI_API_KEY").ok();
+        
+        if api_key.is_none() {
             log::warn!("OPENAI_API_KEY is not set! Cloud transcription will be disabled.")
         }
 
         Ok(Self {
             state: Mutex::new(ManagerState::Idle),
             recorder: Mutex::new(None),
-            transcriber: CloudTranscriber::new(None),
+            transcriber: CloudTranscriber::new(api_key),
             app_handle: app_handle.clone(),
         })
     }
