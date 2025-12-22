@@ -32,10 +32,13 @@ fn greet(name: &str) -> String {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     if let Err(e) = dotenvy::dotenv() {
-        log::debug!("No .env file loaded: {}", e);
+        eprintln!("No .env file loaded: {}", e);
     }
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_log::Builder::new()
+            .level(log::LevelFilter::Info)
+            .build())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
