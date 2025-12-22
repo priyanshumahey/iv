@@ -1,5 +1,7 @@
 mod audio;
 mod cloud_transcribe;
+mod recording_manager;
+mod shortcut;
 
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 #[tauri::command]
