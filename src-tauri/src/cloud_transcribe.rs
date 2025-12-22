@@ -5,7 +5,7 @@ use std::io::Cursor;
 use async_openai::{
     config::OpenAIConfig,
     types::{AudioInput, AudioResponseFormat, CreateTranscriptionRequestArgs},
-    Client
+    Client,
 };
 use hound::{SampleFormat, WavSpec, WavWriter};
 
@@ -54,7 +54,7 @@ impl CloudTranscriber {
         request_builder
             .file(audio_input)
             .model("whisper-1")
-            .response_format(AudioResponseFormat::Text);
+            .response_format(AudioResponseFormat::Json);
 
         if let Some(lang) = language {
             request_builder.language(lang);
@@ -63,7 +63,10 @@ impl CloudTranscriber {
         let request = request_builder.build()?;
 
         // Send request
-        let response = self.client.audio().transcribe(request).await?;
+        let response = self.client.audio().transcribe(request).await.map_err(|e| {
+            log::error!("OpenAI API error: {}", e);
+            anyhow::anyhow!("OpenAI transcription failed: {}", e)
+        })?;
 
         log::debug!("Transcription result: {}", response.text);
         Ok(response.text.trim().to_string())
@@ -76,7 +79,7 @@ fn samples_to_wav(samples: &[f32], sample_rate: u32) -> Result<Vec<u8>, anyhow::
         channels: 1,
         sample_rate,
         bits_per_sample: 16,
-        sample_format: SampleFormat::Int
+        sample_format: SampleFormat::Int,
     };
 
     let mut buffer = Cursor::new(Vec::new());
