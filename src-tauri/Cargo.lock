@@ -1949,8 +1949,10 @@ checksum = "7ee5b5339afb4c41626dde77b7a611bd4f2c202b897852b4bcf5d03eddc61010"
 name = "iv"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "cpal",
  "hound",
+ "log",
  "reqwest",
  "serde",
  "serde_json",
