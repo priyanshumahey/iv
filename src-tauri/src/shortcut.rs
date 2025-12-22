@@ -88,5 +88,5 @@ pub fn cleanup_shortcut(app: &AppHandle) {
     if let Ok(s) = shortcut {
         let _ = app.global_shortcut().unregister(s);
         log::debug!("Unregistered global shortcut: '{}'", DEFAULT_SHORTCUT);
-    }ß
+    }
 }
