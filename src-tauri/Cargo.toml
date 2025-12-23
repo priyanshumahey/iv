@@ -37,6 +37,7 @@ futures-util = "0.3"
 tar = "0.4"
 flate2 = "1.0"
 vad-rs = { git = "https://github.com/cjpais/vad-rs", default-features = false }
+rodio = "0.20"
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-global-shortcut = "2"

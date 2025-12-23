@@ -7,6 +7,7 @@ mod shortcut;
 mod vad;
 mod tray;
 mod settings;
+mod audio_feedback;
 
 use std::sync::Arc;
 
