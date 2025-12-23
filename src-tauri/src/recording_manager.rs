@@ -1,5 +1,6 @@
 //! Recording Manager - Orchestrates audio recording and transcription
 
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
 use tauri::{AppHandle, Emitter};
@@ -9,6 +10,7 @@ use crate::cloud_transcribe::CloudTranscriber;
 use crate::local_transcribe::LocalTranscriber;
 use crate::models::{EngineType, ModelManager};
 use crate::shortcut::events;
+use crate::vad::{ensure_vad_model, SileroVad, SmoothedVad, VadFrame, VAD_FRAME_SAMPLES};
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum ManagerState {
@@ -25,6 +27,8 @@ pub struct RecordingManager {
     model_manager: Arc<ModelManager>,
     selected_model: Mutex<String>,
     app_handle: AppHandle,
+    vad_enabled: Mutex<bool>,
+    vad_model_path: Mutex<Option<PathBuf>>,
 }
 
 impl RecordingManager {
@@ -45,6 +49,8 @@ impl RecordingManager {
             model_manager,
             selected_model: Mutex::new("cloud".to_string()), // Default to cloud
             app_handle: app_handle.clone(),
+            vad_enabled: Mutex::new(true),
+            vad_model_path: Mutex::new(None),
         })
     }
 
@@ -56,6 +62,24 @@ impl RecordingManager {
     /// Get the currently selected model ID
     pub fn get_selected_model(&self) -> String {
         self.selected_model.lock().unwrap().clone()
+    }
+
+    /// Check if VAD is enabled
+    pub fn is_vad_enabled(&self) -> bool {
+        *self.vad_enabled.lock().unwrap()
+    }
+
+    /// Enable or disable VAD
+    pub fn set_vad_enabled(&self, enabled: bool) {
+        *self.vad_enabled.lock().unwrap() = enabled;
+        log::info!("VAD enabled set to {}", enabled);
+    }
+
+    /// Ensure VAD model is downloaded
+    pub async fn ensure_vad_model(&self) -> Result<PathBuf, anyhow::Error> {
+        let path = ensure_vad_model(&self.app_handle).await?;
+        *self.vad_model_path.lock().unwrap() = Some(path.clone());
+        Ok(path)
     }
 
     /// Set the selected model for transcription
@@ -184,7 +208,7 @@ impl RecordingManager {
             .get_model_info(&model_id)
             .ok_or_else(|| anyhow::anyhow!("Selected model not found"))?;
 
-        // Resample to 16kHz if needed (required for all models)
+        // Resample to 16kHz if needed (required for all models and VAD)
         let samples_16k = if sample_rate != 16000 {
             log::debug!("Resampling from {} Hz to 16000 Hz", sample_rate);
             resample_to_16k(&samples, sample_rate)
@@ -192,18 +216,53 @@ impl RecordingManager {
             samples
         };
 
+        // Apply VAD if enabled
+        let samples_filtered = if self.is_vad_enabled() {
+            let vad_path = self.vad_model_path.lock().unwrap().clone();
+            if let Some(path) = vad_path {
+                match self.filter_with_vad(&samples_16k, &path) {
+                    Ok(filtered) => {
+                        let original_duration = samples_16k.len() as f32 / 16000.0;
+                        let filtered_duration = filtered.len() as f32 / 16000.0;
+                        log::info!(
+                            "VAD applied: original {:.2}s, filtered {:.2}s. ({:.1}% retained)",
+                            original_duration,
+                            filtered_duration,
+                            (filtered_duration / original_duration) * 100.0,
+                        );
+                        filtered
+                    }
+                    Err(e) => {
+                        log::error!("VAD processing failed: {}. Proceeding without VAD.", e);
+                        samples_16k
+                    }
+                }
+            } else {
+                log::debug!("VAD model path not set. Skipping VAD.");
+                samples_16k
+            }
+        } else {
+            samples_16k
+        };
+
+        if samples_filtered.is_empty() {
+            let mut state = self.state.lock().unwrap();
+            *state = ManagerState::Idle;
+            return Err(anyhow::anyhow!("No speech detected in the recording"));
+        }
+
         // Transcribe based on engine type
         let result = match model_info.engine_type {
             EngineType::Cloud => {
                 log::info!("Using cloud transcription (OpenAI)");
                 self.cloud_transcriber
-                    .transcribe(samples_16k, 16000, None)
+                    .transcribe(samples_filtered, 16000, None)
                     .await
             }
             EngineType::Parakeet => {
                 log::info!("Using local transcription ({})", model_info.name);
                 // Local transcription is sync
-                self.local_transcriber.transcribe(samples_16k)
+                self.local_transcriber.transcribe(samples_filtered)
             }
         };
 
@@ -214,6 +273,41 @@ impl RecordingManager {
         }
 
         result
+    }
+
+    /// Filter audio using VAD to remove silence
+    fn filter_with_vad(
+        &self,
+        samples: &[f32],
+        vad_path: &PathBuf,
+    ) -> Result<Vec<f32>, anyhow::Error> {
+        use crate::vad::VoiceActivityDetector;
+
+        let silero = SileroVad::new(vad_path, 0.5)?;
+        let mut smoothed_vad = SmoothedVad::with_defaults(Box::new(silero));
+
+        let mut speech_samples = Vec::new();
+
+        for chunk in samples.chunks(VAD_FRAME_SAMPLES) {
+            let frame: Vec<f32> = if chunk.len() < VAD_FRAME_SAMPLES {
+                let mut padded = chunk.to_vec();
+                padded.resize(VAD_FRAME_SAMPLES, 0.0);
+                padded
+            } else {
+                chunk.to_vec()
+            };
+
+            match smoothed_vad.push_frame(&frame)? {
+                VadFrame::Speech(speech) => {
+                    speech_samples.extend_from_slice(speech);
+                }
+                VadFrame::Noise => {
+                    // Skip Silence
+                }
+            }
+        }
+
+        Ok(speech_samples)
     }
 
     pub fn cancel(&self) {
