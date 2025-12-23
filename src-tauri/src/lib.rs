@@ -5,6 +5,7 @@ mod models;
 mod recording_manager;
 mod shortcut;
 mod vad;
+mod tray;
 
 use std::sync::Arc;
 
