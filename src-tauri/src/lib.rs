@@ -4,12 +4,13 @@ mod local_transcribe;
 mod models;
 mod recording_manager;
 mod shortcut;
+mod vad;
 
 use std::sync::Arc;
 
 use models::{ModelInfo, ModelManager};
 use recording_manager::RecordingManager;
-use tauri::Manager;
+use tauri::{Manager, AppHandle};
 
 #[tauri::command]
 fn get_recording_state(manager: tauri::State<Arc<RecordingManager>>) -> String {
@@ -78,6 +79,30 @@ fn unload_model(manager: tauri::State<Arc<RecordingManager>>) {
 }
 
 #[tauri::command]
+fn is_vad_enabled(manager: tauri::State<Arc<RecordingManager>>) -> bool {
+    manager.is_vad_enabled()
+}
+
+#[tauri::command]
+fn set_vad_enabled(enabled: bool, manager: tauri::State<Arc<RecordingManager>>) {
+    manager.set_vad_enabled(enabled);
+}
+
+#[tauri::command]
+async fn ensure_vad_model(manager: tauri::State<'_, Arc<RecordingManager>>) -> Result<String, String> {
+    manager
+        .ensure_vad_model()
+        .await
+        .map(|p| p.to_string_lossy().to_string())
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn is_vad_model_downloaded(app_handle: AppHandle) -> bool {
+    vad::is_vad_model_downloaded(&app_handle)
+}
+
+#[tauri::command]
 fn greet(name: &str) -> String {
     format!("Hello, {}! You've been greeted from Rust!", name)
 }
@@ -130,6 +155,10 @@ pub fn run() {
             download_model,
             delete_model,
             unload_model,
+            is_vad_enabled,
+            set_vad_enabled,
+            ensure_vad_model,
+            is_vad_model_downloaded
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
