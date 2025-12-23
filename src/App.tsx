@@ -1,12 +1,78 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { listen } from "@tauri-apps/api/event";
 import "./App.css";
 import { Orb, type OrbState } from "./components/orb";
 import { useAudioLevel } from "./hooks/useAudioLevel";
 import { useTalkingSimulation } from "./hooks/useTalkingSimulation";
 
+// Sound effect paths - place your audio files in the public folder
+const SOUND_VOICE_ON = "/sounds/voice-on.mp3";
+const SOUND_VOICE_OFF = "/sounds/voice-off.mp3";
+
 export default function App() {
   const [state, setState] = useState<OrbState>("idle");
   const [level, setLevel] = useState(0);
+
+  // Audio refs for sound effects
+  const voiceOnRef = useRef<HTMLAudioElement | null>(null);
+  const voiceOffRef = useRef<HTMLAudioElement | null>(null);
+
+  // Initialize audio elements
+  useEffect(() => {
+    voiceOnRef.current = new Audio(SOUND_VOICE_ON);
+    voiceOffRef.current = new Audio(SOUND_VOICE_OFF);
+    
+    // Preload
+    voiceOnRef.current.load();
+    voiceOffRef.current.load();
+
+    return () => {
+      voiceOnRef.current = null;
+      voiceOffRef.current = null;
+    };
+  }, []);
+
+  const playSound = useCallback((sound: "on" | "off") => {
+    const audio = sound === "on" ? voiceOnRef.current : voiceOffRef.current;
+    if (audio) {
+      audio.currentTime = 0;
+      audio.play().catch(() => {
+        // Ignore autoplay errors
+      });
+    }
+  }, []);
+
+  // Listen for Tauri recording events (from global shortcut)
+  useEffect(() => {
+    const unlistenStarted = listen("recording-started", () => {
+      playSound("on");
+      // Also update orb state to listening when recording via shortcut
+      setState("listening");
+    });
+
+    const unlistenStopped = listen("recording-stopped", () => {
+      playSound("off");
+      // Switch to talking state while transcribing
+      setState("talking");
+    });
+
+    const unlistenCompleted = listen("transcription-completed", () => {
+      // Return to idle when transcription is done
+      setState("idle");
+    });
+
+    const unlistenError = listen("transcription-error", () => {
+      // Return to idle on error
+      setState("idle");
+    });
+
+    return () => {
+      unlistenStarted.then((f) => f());
+      unlistenStopped.then((f) => f());
+      unlistenCompleted.then((f) => f());
+      unlistenError.then((f) => f());
+    };
+  }, [playSound]);
 
   // Audio level from microphone (for listening mode)
   const {
@@ -40,6 +106,14 @@ export default function App() {
 
   const handleStateChange = useCallback(
     async (newState: OrbState) => {
+      // Play sounds immediately for responsiveness
+      if (state === "listening" && newState !== "listening") {
+        playSound("off");
+      }
+      if (newState === "listening" && state !== "listening") {
+        playSound("on");
+      }
+
       // Stop all active effects first
       if (state === "listening" && audioReady) {
         stopAudio();
@@ -57,8 +131,19 @@ export default function App() {
 
       setState(newState);
     },
-    [state, audioReady, stopAudio, stopTalking, startAudio, startTalking]
+    [state, audioReady, stopAudio, stopTalking, startAudio, startTalking, playSound]
   );
+
+  // Toggle handler for listening button - toggles between listening and idle
+  const handleListeningToggle = useCallback(async () => {
+    if (state === "listening") {
+      // Currently listening, turn off
+      await handleStateChange("idle");
+    } else {
+      // Not listening, turn on
+      await handleStateChange("listening");
+    }
+  }, [state, handleStateChange]);
 
   const getStateLabel = () => {
     switch (state) {
@@ -121,13 +206,13 @@ export default function App() {
             Talking
           </button>
           <button
-            onClick={() => handleStateChange("listening")}
+            onClick={handleListeningToggle}
             className={`rounded-lg px-4 py-2 font-medium transition-all ${state === "listening"
               ? "bg-green-500 text-white"
               : "bg-green-900 text-green-300 hover:bg-green-800"
               }`}
           >
-            Listening
+            {state === "listening" ? "Stop Listening" : "Listening"}
           </button>
         </div>
 
