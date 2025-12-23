@@ -25,12 +25,16 @@ serde_json = "1"
 cpal = "0.15"
 hound = "3.5"
 tokio = { version = "1", features = ["full"] }
-reqwest = { version = "0.12", features= ["json", "multipart"] }
+reqwest = { version = "0.12", features= ["json", "multipart", "stream"] }
 log = "0.4"
 anyhow = "1.0"
 async-openai = "0.27"
 dotenvy = "0.15"
 tauri-plugin-log = "2"
+transcribe-rs = { version = "0.2", features = ["parakeet"] }
+futures-util = "0.3"
+tar = "0.4"
+flate2 = "1.0"
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-global-shortcut = "2"
