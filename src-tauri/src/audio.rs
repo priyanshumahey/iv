@@ -208,9 +208,10 @@ impl AudioRecorder {
                         .collect()
                 };
 
-                // Snd samples to the recording loop
+                // Send samples to the recording loop
                 if sample_tx.send(mono_samples).is_err() {
-                    log::error!("Failed to send audio samples to recording loop");
+                    // This is expected when the stream is closing - the receiver has been dropped
+                    log::debug!("Audio channel closed, stream is shutting down");
                 }
             },
             |err| {
@@ -300,8 +301,8 @@ fn run_recording_loop(
                 RecorderCommand::Stop(reply_tx) => {
                     is_recording = false;
                     let samples = std::mem::take(&mut buffer);
+                    log::debug!("Recording stopped in worker, captured {} samples", samples.len());
                     let _ = reply_tx.send(samples);
-                    log::debug!("Recording stopped in worker");
                 }
                 RecorderCommand::Shutdown => {
                     log::debug!("Shutdown command received, exiting recording loop");

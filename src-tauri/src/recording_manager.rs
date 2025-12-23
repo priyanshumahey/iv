@@ -141,7 +141,10 @@ impl RecordingManager {
         let mut state = self.state.lock().unwrap();
 
         if *state != ManagerState::Idle {
-            log::warn!("Cannot start recording: currently in state {:?}", *state);
+            log::warn!(
+                "Cannot start recording: already in {:?} state. Wait for current operation to complete.",
+                *state
+            );
             return Ok(());
         }
 
@@ -194,8 +197,8 @@ impl RecordingManager {
             return Err(anyhow::anyhow!("No audio recorded"));
         }
 
-        log::debug!(
-            "Recorded {} samples at {} Hz ({:.2}s)",
+        log::info!(
+            "Captured {} samples at {} Hz ({:.2}s of audio)",
             samples.len(),
             sample_rate,
             samples.len() as f32 / sample_rate as f32
@@ -210,8 +213,14 @@ impl RecordingManager {
 
         // Resample to 16kHz if needed (required for all models and VAD)
         let samples_16k = if sample_rate != 16000 {
-            log::debug!("Resampling from {} Hz to 16000 Hz", sample_rate);
-            resample_to_16k(&samples, sample_rate)
+            let resampled = resample_to_16k(&samples, sample_rate);
+            log::info!(
+                "Resampled audio: {} Hz → 16000 Hz ({} → {} samples)",
+                sample_rate,
+                samples.len(),
+                resampled.len()
+            );
+            resampled
         } else {
             samples
         };

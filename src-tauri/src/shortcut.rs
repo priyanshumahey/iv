@@ -50,14 +50,14 @@ fn handle_shortcut_event(app: &AppHandle, state: ShortcutState) {
 
     match state {
         ShortcutState::Pressed => {
-            log::debug!("Shortcut pressed - starting recording");
+            log::info!("Shortcut pressed - initiating recording");
             if let Err(e) = manager.start_recording() {
                 log::error!("Failed to start recording: {}", e);
                 let _ = app.emit(events::TRANSCRIPTION_ERROR, e.to_string());
             }
         }
         ShortcutState::Released => {
-            log::debug!("Shortcut released - stopping recording");
+            log::info!("Shortcut released - stopping recording, starting transcription");
             let manager = Arc::clone(&manager);
             let app_handle = app.clone();
 
@@ -69,7 +69,17 @@ fn handle_shortcut_event(app: &AppHandle, state: ShortcutState) {
 
                     match manager.stop_and_transcribe().await {
                         Ok(text) => {
-                            log::info!("Transcription complete: {}", text);
+                            let preview = if text.len() > 50 {
+                                format!("{}...", &text[..50])
+                            } else {
+                                text.clone()
+                            };
+                            log::info!(
+                                "Transcription complete: {} chars, {} words - \"{}\"",
+                                text.len(),
+                                text.split_whitespace().count(),
+                                preview
+                            );
                             let _ = app_handle.emit(events::TRANSCRIPTION_COMPLETED, &text);
                         }
                         Err(e) => {

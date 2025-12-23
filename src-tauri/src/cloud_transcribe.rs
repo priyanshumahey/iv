@@ -39,9 +39,11 @@ impl CloudTranscriber {
         }
 
         let wav_bytes = samples_to_wav(&samples, sample_rate)?;
+        let audio_duration = samples.len() as f32 / sample_rate as f32;
 
-        log::debug!(
-            "Sending {} bytes of audio to OpenAI ({} samples at {} Hz)",
+        log::info!(
+            "Sending {:.2}s of audio to OpenAI ({} bytes, {} samples at {} Hz)",
+            audio_duration,
             wav_bytes.len(),
             samples.len(),
             sample_rate
@@ -68,8 +70,14 @@ impl CloudTranscriber {
             anyhow::anyhow!("OpenAI transcription failed: {}", e)
         })?;
 
-        log::debug!("Transcription result: {}", response.text);
-        Ok(response.text.trim().to_string())
+        let text = response.text.trim().to_string();
+        log::info!(
+            "Cloud transcription complete: {} chars, {} words",
+            text.len(),
+            text.split_whitespace().count()
+        );
+        log::debug!("Transcription text: {}", text);
+        Ok(text)
     }
 }
 
