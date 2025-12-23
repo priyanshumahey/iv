@@ -1,11 +1,15 @@
-//! Keyboard shortcut handling
+//! Keyboard shortcut handling with full UX integration
 
 use std::sync::Arc;
 
 use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
 
+use crate::audio_feedback::{self, SoundType};
+use crate::clipboard;
+use crate::overlay::{self, OverlayState};
 use crate::recording_manager::RecordingManager;
+use crate::tray::{self, TrayIconState};
 
 pub const DEFAULT_SHORTCUT: &str = "ctrl+space";
 
@@ -50,44 +54,64 @@ fn handle_shortcut_event(app: &AppHandle, state: ShortcutState) {
 
     match state {
         ShortcutState::Pressed => {
-            log::info!("Shortcut pressed - initiating recording");
+            log::debug!("Shortcut pressed - starting recording");
+
+            // Update tray icon
+            tray::change_tray_icon(app, TrayIconState::Recording);
+
+            // Show recording overlay
+            overlay::show_overlay(app, OverlayState::Recording);
+
+            // Play start sound
+            audio_feedback::play_feedback_sound(app, SoundType::Start);
+
+            // Start recording
             if let Err(e) = manager.start_recording() {
                 log::error!("Failed to start recording: {}", e);
                 let _ = app.emit(events::TRANSCRIPTION_ERROR, e.to_string());
+
+                // Reset UI on error
+                tray::change_tray_icon(app, TrayIconState::Idle);
+                overlay::hide_overlay(app);
             }
         }
         ShortcutState::Released => {
-            log::info!("Shortcut released - stopping recording, starting transcription");
+            log::debug!("Shortcut released - stopping recording");
+
             let manager = Arc::clone(&manager);
             let app_handle = app.clone();
 
             tauri::async_runtime::spawn(async move {
+                // Update UI to transcribing state
+                tray::change_tray_icon(&app_handle, TrayIconState::Transcribing);
+                overlay::update_overlay_state(&app_handle, OverlayState::Transcribing);
+
                 let _ = app_handle.emit(events::TRANSCRIPTION_STARTED, ());
 
-                tauri::async_runtime::spawn(async move {
-                    let _ = app_handle.emit(events::TRANSCRIPTION_STARTED, ());
+                match manager.stop_and_transcribe().await {
+                    Ok(text) => {
+                        log::info!("Transcription complete: {}", text);
 
-                    match manager.stop_and_transcribe().await {
-                        Ok(text) => {
-                            let preview = if text.len() > 50 {
-                                format!("{}...", &text[..50])
-                            } else {
-                                text.clone()
-                            };
-                            log::info!(
-                                "Transcription complete: {} chars, {} words - \"{}\"",
-                                text.len(),
-                                text.split_whitespace().count(),
-                                preview
-                            );
-                            let _ = app_handle.emit(events::TRANSCRIPTION_COMPLETED, &text);
-                        }
-                        Err(e) => {
-                            log::error!("Transcription error: {}", e);
-                            let _ = app_handle.emit(events::TRANSCRIPTION_ERROR, e.to_string());
+                        // Play stop sound
+                        audio_feedback::play_feedback_sound(&app_handle, SoundType::Stop);
+
+                        // Emit completion event to frontend
+                        let _ = app_handle.emit(events::TRANSCRIPTION_COMPLETED, &text);
+
+                        // Paste the transcribed text
+                        if let Err(e) = clipboard::paste(text, &app_handle) {
+                            log::error!("Failed to paste transcription: {}", e);
                         }
                     }
-                });
+                    Err(e) => {
+                        log::error!("Transcription error: {}", e);
+                        let _ = app_handle.emit(events::TRANSCRIPTION_ERROR, e.to_string());
+                    }
+                }
+
+                // Reset UI
+                tray::change_tray_icon(&app_handle, TrayIconState::Idle);
+                overlay::hide_overlay(&app_handle);
             });
         }
     }

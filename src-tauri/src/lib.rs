@@ -1,19 +1,33 @@
 mod audio;
+mod audio_feedback;
+mod clipboard;
 mod cloud_transcribe;
+mod input;
 mod local_transcribe;
 mod models;
+mod overlay;
 mod recording_manager;
-mod shortcut;
-mod vad;
-mod tray;
 mod settings;
-mod audio_feedback;
+mod shortcut;
+mod tray;
+mod vad;
 
 use std::sync::Arc;
 
 use models::{ModelInfo, ModelManager};
 use recording_manager::RecordingManager;
-use tauri::{Manager, AppHandle};
+use settings::AppSettings;
+use tauri::{AppHandle, Manager};
+
+#[tauri::command]
+fn get_settings(app_handle: AppHandle) -> AppSettings {
+    settings::get_settings(&app_handle)
+}
+
+#[tauri::command]
+fn save_settings(app_handle: AppHandle, new_settings: AppSettings) -> Result<(), String> {
+    settings::write_settings(&app_handle, &new_settings)
+}
 
 #[tauri::command]
 fn get_recording_state(manager: tauri::State<Arc<RecordingManager>>) -> String {
@@ -92,7 +106,9 @@ fn set_vad_enabled(enabled: bool, manager: tauri::State<Arc<RecordingManager>>) 
 }
 
 #[tauri::command]
-async fn ensure_vad_model(manager: tauri::State<'_, Arc<RecordingManager>>) -> Result<String, String> {
+async fn ensure_vad_model(
+    manager: tauri::State<'_, Arc<RecordingManager>>,
+) -> Result<String, String> {
     manager
         .ensure_vad_model()
         .await
@@ -103,6 +119,16 @@ async fn ensure_vad_model(manager: tauri::State<'_, Arc<RecordingManager>>) -> R
 #[tauri::command]
 fn is_vad_model_downloaded(app_handle: AppHandle) -> bool {
     vad::is_vad_model_downloaded(&app_handle)
+}
+
+#[tauri::command]
+fn play_test_start_sound(app_handle: AppHandle) {
+    audio_feedback::play_test_sound(&app_handle, audio_feedback::SoundType::Start);
+}
+
+#[tauri::command]
+fn play_test_stop_sound(app_handle: AppHandle) {
+    audio_feedback::play_test_sound(&app_handle, audio_feedback::SoundType::Stop);
 }
 
 #[tauri::command]
@@ -124,20 +150,39 @@ pub fn run() {
         )
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_store::Builder::new().build())
+        .plugin(tauri_plugin_clipboard_manager::init())
         .setup(|app| {
             log::info!("App starting up...");
 
+            // Initialize Model Manager
             let model_manager = Arc::new(
                 ModelManager::new(app.handle()).expect("Failed to initialize ModelManager"),
             );
             app.manage(model_manager.clone());
 
+            // Initialize Recording Manager
             let recording_manager = Arc::new(
                 RecordingManager::new(app.handle(), model_manager)
                     .expect("Failed to initialize RecordingManager"),
             );
             app.manage(recording_manager);
 
+            // Initialize system tray
+            match tray::create_tray(app.handle()) {
+                Ok(tray_icon) => {
+                    app.manage(tray_icon);
+                    log::info!("System tray initialized");
+                }
+                Err(e) => {
+                    log::error!("Failed to create system tray: {}", e);
+                }
+            }
+
+            // Create recording overlay window (hidden by default)
+            overlay::create_recording_overlay(app.handle());
+
+            // Initialize global shortcut
             if let Err(e) = shortcut::init_shortcut(app.handle()) {
                 log::error!("Failed to initialize shortcut: {}", e);
             }
@@ -147,10 +192,15 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            // Settings
+            get_settings,
+            save_settings,
+            // Recording
             greet,
             get_recording_state,
             cancel_recording,
             list_audio_devices,
+            // Models
             get_available_models,
             get_selected_model,
             set_selected_model,
@@ -158,10 +208,14 @@ pub fn run() {
             download_model,
             delete_model,
             unload_model,
+            // VAD
             is_vad_enabled,
             set_vad_enabled,
             ensure_vad_model,
-            is_vad_model_downloaded
+            is_vad_model_downloaded,
+            // Audio Feedback
+            play_test_start_sound,
+            play_test_stop_sound,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
