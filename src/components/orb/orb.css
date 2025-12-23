@@ -4,10 +4,8 @@
   position: relative;
   width: var(--orb-size);
   height: var(--orb-size);
-  /* Use transform for smooth scaling instead of changing dimensions */
   transform: scale(var(--orb-scale, 1));
-  /* Smooth transition for scale changes */
-  transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
   will-change: transform;
 }
 
@@ -29,7 +27,9 @@
     var(--shadow-color-4) 0px 1px 7px 0px inset;
   animation: orb-hue-shift calc(var(--animation-speed) * 10) linear infinite;
   /* Smooth transitions for color/shadow changes */
-  transition: box-shadow 0.3s ease-out;
+  transition:
+    background-image 0.6s ease-out,
+    box-shadow 0.4s ease-out;
 }
 
 .orb-glass {
@@ -62,6 +62,7 @@
   transform-style: preserve-3d;
   animation: orb-rotate-diagonal calc(var(--animation-speed) * 8) linear infinite,
     orb-hue-shift calc(var(--animation-speed) * 12) linear infinite;
+  transition: background-image 0.5s ease-out;
 }
 
 .orb-shape-b {
@@ -82,6 +83,7 @@
   animation: orb-rotate-diagonal calc(var(--animation-speed) * 10) linear infinite,
     orb-hue-shift calc(var(--animation-speed) * 15) linear infinite;
   mix-blend-mode: soft-light;
+  transition: background 0.5s ease-out;
 }
 
 .orb-shape-c {
@@ -124,6 +126,7 @@
   animation: orb-rotate-diagonal calc(var(--animation-speed) * 14) linear infinite,
     orb-hue-shift calc(var(--animation-speed) * 20) linear infinite;
   mix-blend-mode: color;
+  transition: background-image 0.5s ease-out, opacity 0.3s ease-out;
 }
 
 .orb-blob-a {
@@ -136,6 +139,7 @@
   mix-blend-mode: screen;
   animation: orb-rotate-diagonal calc(var(--animation-speed) * 16) linear infinite,
     orb-hue-shift calc(var(--animation-speed) * 24) linear infinite;
+  transition: opacity 0.4s ease-out;
 }
 
 .orb-blob-b {
@@ -148,6 +152,7 @@
   mix-blend-mode: lighten;
   animation: orb-rotate-diagonal calc(var(--animation-speed) * 18) linear infinite,
     orb-hue-shift calc(var(--animation-speed) * 28) linear infinite;
+  transition: opacity 0.4s ease-out;
 }
 
 .orb-blob-shine {
