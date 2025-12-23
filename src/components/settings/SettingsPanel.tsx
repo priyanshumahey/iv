@@ -68,12 +68,12 @@ export function SettingsPanel({
             {/* Collapsed view - just shows current model */}
             <button
                 onClick={() => setIsExpanded(!isExpanded)}
-                className="flex w-full items-center justify-between rounded-lg border border-white/20 bg-slate-800/80 px-4 py-3 text-left backdrop-blur-sm transition-all hover:bg-slate-700/80 hover:border-white/30"
+                className="flex w-full items-center justify-between rounded-lg border border-slate-600/50 bg-slate-800/90 px-4 py-3 text-left backdrop-blur-sm transition-all hover:border-slate-500/60 hover:bg-slate-800"
             >
                 <div className="flex items-center gap-3">
-                    <Settings className="h-4 w-4 text-slate-300" />
+                    <Settings className="h-4 w-4 text-slate-400" />
                     <div>
-                        <p className="text-sm font-medium text-white">
+                        <p className="text-sm font-medium">
                             {selectedModelInfo?.name || "Select Model"}
                         </p>
                         <p className="text-xs text-slate-400">
@@ -83,18 +83,18 @@ export function SettingsPanel({
                     </div>
                 </div>
                 {isExpanded ? (
-                    <ChevronUp className="h-4 w-4 text-slate-300" />
+                    <ChevronUp className="h-4 w-4 text-slate-400" />
                 ) : (
-                    <ChevronDown className="h-4 w-4 text-slate-300" />
+                    <ChevronDown className="h-4 w-4 text-slate-400" />
                 )}
             </button>
 
             {/* Expanded settings */}
             {isExpanded && (
-                <div className="mt-2 space-y-4 rounded-lg border border-white/20 bg-slate-800/90 p-4 backdrop-blur-sm">
+                <div className="mt-2 space-y-4 rounded-lg border border-slate-600/50 bg-slate-800/95 p-4 backdrop-blur-sm">
                     {/* Error display */}
                     {error && (
-                        <div className="rounded-md bg-red-500/20 border border-red-500/30 px-3 py-2 text-xs text-red-300">
+                        <div className="rounded-md border border-red-700/40 bg-red-900/30 px-3 py-2 text-xs text-red-200">
                             {error}
                         </div>
                     )}
@@ -102,7 +102,7 @@ export function SettingsPanel({
                     {/* Model Selection */}
                     <div className="space-y-2">
                         <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-300">
-                            <Cpu className="h-3 w-3" />
+                            <Cpu className="h-3 w-3 text-slate-400" />
                             Transcription Model
                         </h3>
                         <div className="space-y-1">
@@ -128,31 +128,31 @@ export function SettingsPanel({
                     {/* VAD Toggle */}
                     <div className="space-y-2">
                         <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-300">
-                            <Mic className="h-3 w-3" />
+                            <Mic className="h-3 w-3 text-slate-400" />
                             Voice Activity Detection
                         </h3>
                         <button
                             onClick={onToggleVad}
                             disabled={!vadModelDownloaded}
                             className={cn(
-                                "flex w-full items-center justify-between rounded-md px-3 py-2 text-sm transition-all",
+                                "flex w-full items-center justify-between rounded-md border px-3 py-2 text-sm transition-all disabled:cursor-not-allowed disabled:opacity-60",
                                 vadEnabled
-                                    ? "bg-green-500/20 border border-green-500/30 text-green-300"
-                                    : "bg-slate-700/50 border border-white/10 text-slate-300 hover:bg-slate-700/80"
+                                    ? "border-emerald-400/40 bg-emerald-500/15 text-emerald-200"
+                                    : "border-slate-600/50 bg-slate-700/60 text-slate-200 hover:border-slate-500/60 hover:bg-slate-700/80"
                             )}
                         >
                             <span>Filter silence from audio</span>
                             <span
                                 className={cn(
                                     "rounded-full px-2 py-0.5 text-xs font-medium",
-                                    vadEnabled ? "bg-green-500/30 text-green-300" : "bg-slate-600 text-slate-300"
+                                    vadEnabled ? "bg-emerald-500/20 text-emerald-200" : "bg-slate-600/80 text-slate-200"
                                 )}
                             >
                                 {vadEnabled ? "On" : "Off"}
                             </span>
                         </button>
                         {vadDownloadProgress !== null && (
-                            <div className="text-xs text-slate-300">
+                            <div className="text-xs text-slate-400">
                                 Downloading VAD model: {vadDownloadProgress.toFixed(0)}%
                             </div>
                         )}
@@ -164,9 +164,9 @@ export function SettingsPanel({
                     </div>
 
                     {/* Instructions */}
-                    <div className="border-t border-white/20 pt-3">
+                    <div className="border-t border-slate-600/50 pt-3">
                         <p className="text-xs text-slate-400">
-                            Press <kbd className="rounded bg-slate-700 px-1.5 py-0.5 text-slate-300 border border-slate-600">Ctrl+Space</kbd> to record
+                            Press <kbd className="rounded border border-slate-600/50 bg-slate-700/70 px-1.5 py-0.5 text-slate-200">Ctrl+Space</kbd> to record
                         </p>
                     </div>
                 </div>
@@ -203,8 +203,8 @@ function ModelCard({
             className={cn(
                 "group relative rounded-md border px-3 py-2 transition-all",
                 isSelected
-                    ? "border-blue-400/50 bg-blue-500/20"
-                    : "border-white/10 bg-slate-700/50 hover:border-white/20 hover:bg-slate-700/80"
+                    ? "border-blue-400/60 bg-blue-500/15 shadow-sm"
+                    : "border-slate-600/50 bg-slate-700/70 hover:border-slate-500/60 hover:bg-slate-700/90"
             )}
         >
             <div className="flex items-center justify-between">
@@ -212,10 +212,10 @@ function ModelCard({
                     {isCloud ? (
                         <Cloud className="h-4 w-4 text-blue-400" />
                     ) : (
-                        <Cpu className="h-4 w-4 text-green-400" />
+                        <Cpu className="h-4 w-4 text-emerald-400" />
                     )}
                     <div>
-                        <p className="text-sm font-medium text-white">{model.name}</p>
+                        <p className="text-sm font-medium text-slate-200">{model.name}</p>
                         <p className="text-xs text-slate-400">
                             {isCloud ? "OpenAI API" : `${model.size_mb} MB`}
                         </p>
@@ -230,7 +230,7 @@ function ModelCard({
                                 e.stopPropagation();
                                 onDownload();
                             }}
-                            className="rounded p-1.5 text-slate-300 transition-colors hover:bg-slate-600 hover:text-white"
+                            className="rounded p-1.5 text-slate-400 transition-colors hover:bg-slate-600/60 hover:text-slate-200"
                             title="Download model"
                         >
                             <Download className="h-4 w-4" />
@@ -242,7 +242,7 @@ function ModelCard({
                         <div className="flex items-center gap-2">
                             <Loader2 className="h-4 w-4 animate-spin text-blue-400" />
                             {downloadProgress && (
-                                <span className="text-xs text-blue-300 font-medium">
+                                <span className="text-xs font-medium text-blue-200">
                                     {downloadProgress.percentage.toFixed(0)}%
                                 </span>
                             )}
@@ -258,10 +258,10 @@ function ModelCard({
                             }}
                             disabled={isSelected || isModelLoading}
                             className={cn(
-                                "rounded p-1.5 transition-colors",
+                                "rounded p-1.5 transition-colors disabled:cursor-not-allowed disabled:opacity-60",
                                 isSelected
                                     ? "text-blue-400"
-                                    : "text-slate-300 hover:bg-slate-600 hover:text-white"
+                                    : "text-slate-400 hover:bg-slate-600/60 hover:text-slate-200"
                             )}
                             title={isSelected ? "Selected" : "Select model"}
                         >
@@ -282,7 +282,7 @@ function ModelCard({
                                 e.stopPropagation();
                                 onDelete();
                             }}
-                            className="rounded p-1.5 text-slate-400 opacity-0 transition-all hover:bg-red-500/30 hover:text-red-300 group-hover:opacity-100"
+                            className="rounded p-1.5 text-slate-400 opacity-0 transition-all hover:bg-red-500/20 hover:text-red-200 group-hover:opacity-100"
                             title="Delete model"
                         >
                             <Trash2 className="h-4 w-4" />
@@ -293,9 +293,9 @@ function ModelCard({
 
             {/* Download progress bar */}
             {downloadProgress && (
-                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-600">
+                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-600/70">
                     <div
-                        className="h-full bg-blue-500 transition-all"
+                        className="h-full rounded-full bg-gradient-to-r from-blue-500 to-blue-400 ring-1 ring-blue-400/20 transition-all"
                         style={{ width: `${downloadProgress.percentage}%` }}
                     />
                 </div>
