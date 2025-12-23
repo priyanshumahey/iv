@@ -112,7 +112,7 @@ pub fn create_recording_overlay(app_handle: &AppHandle) {
     .focused(false)
     .build()
     {
-        Ok(_window) => {
+        Ok(window) => {
             debug!("Recording overlay window created");
 
             // On Windows, force the window to be topmost

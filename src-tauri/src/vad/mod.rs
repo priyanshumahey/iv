@@ -6,7 +6,7 @@ mod smoothed;
 
 use anyhow::Result;
 
-pub use download::{ensure_vad_model, get_vad_model_path, is_vad_model_downloaded, VAD_MODEL_NAME};
+pub use download::{ensure_vad_model, is_vad_model_downloaded};
 pub use silero::SileroVad;
 pub use smoothed::SmoothedVad;
 
