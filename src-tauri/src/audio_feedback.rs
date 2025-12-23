@@ -18,8 +18,8 @@ pub enum SoundType {
 /// Get the sound file path for a given sound type
 fn get_sound_path(sound_type: &SoundType) -> &'static str {
     match sound_type {
-        SoundType::Start => "resources/sounds/start.wav",
-        SoundType::Stop => "resources/sounds/stop.wav",
+        SoundType::Start => "resources/sound/start.mp3",
+        SoundType::Stop => "resources/sound/stop.mp3",
     }
 }
 
