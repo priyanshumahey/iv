@@ -1,0 +1,87 @@
+/* Overlay Styles */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  background: transparent;
+  overflow: hidden;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+#root {
+  width: 100%;
+  height: 100%;
+}
+
+.overlay-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 200px;
+  height: 50px;
+  background: rgba(0, 0, 0, 0.85);
+  border-radius: 25px;
+  padding: 0 20px;
+  gap: 12px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+}
+
+.overlay-container.hidden {
+  display: none;
+}
+
+/* Recording indicator dot */
+.indicator {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.indicator.recording {
+  background: #ff4444;
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+.indicator.transcribing {
+  background: #4488ff;
+  animation: spin-pulse 1s linear infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(0.9);
+  }
+}
+
+@keyframes spin-pulse {
+  0% {
+    opacity: 0.5;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+  100% {
+    opacity: 0.5;
+    transform: scale(0.8);
+  }
+}
+
+/* Status text */
+.status-text {
+  color: white;
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+}

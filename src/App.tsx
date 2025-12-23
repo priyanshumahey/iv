@@ -32,26 +32,14 @@ export default function App() {
     };
   }, []);
 
-  const playSound = useCallback((sound: "on" | "off") => {
-    const audio = sound === "on" ? voiceOnRef.current : voiceOffRef.current;
-    if (audio) {
-      audio.currentTime = 0;
-      audio.play().catch(() => {
-        // Ignore autoplay errors
-      });
-    }
-  }, []);
-
   // Listen for Tauri recording events (from global shortcut)
   useEffect(() => {
     const unlistenStarted = listen("recording-started", () => {
-      playSound("on");
       // Also update orb state to listening when recording via shortcut
       setState("listening");
     });
 
     const unlistenStopped = listen("recording-stopped", () => {
-      playSound("off");
       // Switch to talking state while transcribing
       setState("talking");
     });
@@ -72,7 +60,7 @@ export default function App() {
       unlistenCompleted.then((f) => f());
       unlistenError.then((f) => f());
     };
-  }, [playSound]);
+  }, []);
 
   // Audio level from microphone (for listening mode)
   const {
@@ -106,14 +94,6 @@ export default function App() {
 
   const handleStateChange = useCallback(
     async (newState: OrbState) => {
-      // Play sounds immediately for responsiveness
-      if (state === "listening" && newState !== "listening") {
-        playSound("off");
-      }
-      if (newState === "listening" && state !== "listening") {
-        playSound("on");
-      }
-
       // Stop all active effects first
       if (state === "listening" && audioReady) {
         stopAudio();
@@ -131,7 +111,7 @@ export default function App() {
 
       setState(newState);
     },
-    [state, audioReady, stopAudio, stopTalking, startAudio, startTalking, playSound]
+    [state, audioReady, stopAudio, stopTalking, startAudio, startTalking]
   );
 
   // Toggle handler for listening button - toggles between listening and idle

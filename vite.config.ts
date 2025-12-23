@@ -1,6 +1,6 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from "@vitejs/plugin-react";
-import path from "path";
+import path, {resolve} from "path";
 import { defineConfig } from "vite";
 
 // @ts-expect-error process is a nodejs global
@@ -15,6 +15,14 @@ export default defineConfig(async () => ({
     },
   },
 
+  build: {
+    rollupOptions: {
+      input: {
+        main: resolve(__dirname, "index.html"),
+        overlay: resolve(__dirname, "src/overlay/index.html"),
+      }
+    }
+  },
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   //
   // 1. prevent Vite from obscuring rust errors
