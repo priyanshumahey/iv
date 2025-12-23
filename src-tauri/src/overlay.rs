@@ -102,6 +102,7 @@ pub fn create_recording_overlay(app_handle: &AppHandle) {
     .resizable(false)
     .inner_size(OVERLAY_WIDTH, OVERLAY_HEIGHT)
     .shadow(false)
+    .transparent(true)
     .maximizable(false)
     .minimizable(false)
     .closable(false)
