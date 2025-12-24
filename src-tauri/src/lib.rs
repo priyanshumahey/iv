@@ -191,6 +191,15 @@ pub fn run() {
 
             Ok(())
         })
+        .on_window_event(|window, event| {
+            if window.label() == "main" {
+                if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                    api.prevent_close();
+                    let _ = window.hide();
+                    log::info!("Main window hidden instead of closed.");
+                }
+            }
+        })
         .invoke_handler(tauri::generate_handler![
             // Settings
             get_settings,

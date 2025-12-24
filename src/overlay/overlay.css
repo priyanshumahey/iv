@@ -6,8 +6,7 @@
 }
 
 html, body {
-  background: transparent !important;
-  background-color: transparent !important;
+  background: transparent;
   overflow: hidden;
   -webkit-user-select: none;
   user-select: none;

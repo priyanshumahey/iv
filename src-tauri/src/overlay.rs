@@ -106,9 +106,11 @@ pub fn create_recording_overlay(app_handle: &AppHandle) {
     .maximizable(false)
     .minimizable(false)
     .closable(false)
+    .accept_first_mouse(true)
     .decorations(false)
     .always_on_top(true)
     .skip_taskbar(true)
+    .transparent(true)
     .visible(false)
     .focused(false)
     .build()
@@ -143,26 +145,36 @@ pub fn show_overlay(app_handle: &AppHandle, state: OverlayState) {
         return;
     }
 
-    if let Some(overlay) = app_handle.get_webview_window("recording_overlay") {
-        // Update position in case monitor changed
-        if let Some((x, y)) = calculate_overlay_position(app_handle) {
-            let _ =
-                overlay.set_position(tauri::Position::Logical(tauri::LogicalPosition::new(x, y)));
+    let overlay = match app_handle.get_webview_window("recording_overlay") {
+        Some(window) => window,
+        None => {
+            log::info!("Overlay window not found, creating a new one");
+            create_recording_overlay(app_handle);
+            match app_handle.get_webview_window("recording_overlay") {
+                Some(window) => window,
+                None => {
+                    log::error!("Failed to create overlay window");
+                    return;
+                }
+            }
         }
+    };
 
-        // Emit state change to frontend
-        let _ = app_handle.emit("overlay-state-change", &state);
-
-        // Show the window
-        let _ = overlay.show();
-
-        #[cfg(target_os = "windows")]
-        force_overlay_topmost(&overlay);
-
-        debug!("Overlay shown with state: {:?}", state);
-    } else {
-        log::warn!("Recording overlay window not found");
+    // Update position in case monitor changed
+    if let Some((x, y)) = calculate_overlay_position(app_handle) {
+        let _ = overlay.set_position(tauri::Position::Logical(tauri::LogicalPosition::new(x, y)));
     }
+
+    // Emit state change to frontend
+    let _ = app_handle.emit("overlay-state-change", &state);
+
+    // Show the window
+    let _ = overlay.show();
+
+    #[cfg(target_os = "windows")]
+    force_overlay_topmost(&overlay);
+
+    debug!("Overlay shown with state: {:?}", state);
 }
 
 /// Hide the overlay
