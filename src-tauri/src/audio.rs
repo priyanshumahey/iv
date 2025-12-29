@@ -2,6 +2,7 @@
 //! 1. Opens a microphone stream
 //! 2. Records audio samples when started
 //! 3. Returns samples when stopped
+//! 4. Emits audio level updates during recording
 
 use std::sync::{mpsc, Arc, Mutex};
 
@@ -26,11 +27,15 @@ pub enum RecorderState {
     Processing,
 }
 
+/// Callback for audio level updates (0.0 to 1.0)
+pub type AudioLevelCallback = Arc<dyn Fn(f32) + Send + Sync>;
+
 pub struct AudioRecorder {
     device: Option<Device>,
     cmd_tx: Option<mpsc::Sender<RecorderCommand>>,
     worker_handle: Option<std::thread::JoinHandle<()>>,
     sample_rate: Arc<Mutex<u32>>,
+    audio_level_callback: Option<AudioLevelCallback>,
 }
 
 impl AudioRecorder {
@@ -41,7 +46,16 @@ impl AudioRecorder {
             cmd_tx: None,
             worker_handle: None,
             sample_rate: Arc::new(Mutex::new(16000)),
+            audio_level_callback: None,
         })
+    }
+
+    /// Set the callback for audio level updates
+    pub fn set_audio_level_callback<F>(&mut self, callback: F)
+    where
+        F: Fn(f32) + Send + Sync + 'static,
+    {
+        self.audio_level_callback = Some(Arc::new(callback));
     }
 
     /// Open the audio stream with the specified device (or default if None)
@@ -85,6 +99,9 @@ impl AudioRecorder {
         // Clone device for the thread
         let thread_device = device.clone();
 
+        // Clone the audio level callback for the worker thread
+        let level_callback = self.audio_level_callback.clone();
+
         // Spawn worker thread
         let worker = std::thread::spawn(move || {
             // Build stream based on sample format
@@ -123,7 +140,7 @@ impl AudioRecorder {
 
             log::info!("Audio stream started");
 
-            run_recording_loop(sample_rx, cmd_rx);
+            run_recording_loop(sample_rx, cmd_rx, level_callback);
 
             log::info!("Audio worker thread exiting");
         });
@@ -267,18 +284,57 @@ impl AudioRecorder {
     }
 }
 
+/// Calculate RMS (Root Mean Square) audio level from samples
+/// Returns a value between 0.0 and 1.0
+fn calculate_audio_level(samples: &[f32]) -> f32 {
+    if samples.is_empty() {
+        return 0.0;
+    }
+
+    // Calculate RMS
+    let sum_squares: f32 = samples.iter().map(|&s| s * s).sum();
+    let rms = (sum_squares / samples.len() as f32).sqrt();
+
+    // Convert to a more perceptually linear scale (0-1)
+    // RMS values are typically very small (0.0 - 0.3 for normal speech)
+    // We scale and clamp to get a useful 0-1 range
+    let scaled = (rms * 4.0).min(1.0);
+
+    // Apply slight curve for better visual response
+    scaled.powf(0.7)
+}
+
 fn run_recording_loop(
     sample_rx: mpsc::Receiver<Vec<f32>>,
     cmd_rx: mpsc::Receiver<RecorderCommand>,
+    level_callback: Option<AudioLevelCallback>,
 ) {
     let mut is_recording = false;
     let mut buffer: Vec<f32> = Vec::new();
+    let mut level_sample_buffer: Vec<f32> = Vec::new();
+    let mut last_level_update = std::time::Instant::now();
+    const LEVEL_UPDATE_INTERVAL_MS: u64 = 33; // ~30fps
 
     loop {
         match sample_rx.recv_timeout(std::time::Duration::from_millis(10)) {
             Ok(samples) => {
                 if is_recording {
-                    buffer.extend(samples);
+                    buffer.extend(&samples);
+
+                    // Accumulate samples for level calculation
+                    if level_callback.is_some() {
+                        level_sample_buffer.extend(&samples);
+
+                        // Emit level updates at regular intervals
+                        if last_level_update.elapsed().as_millis() >= LEVEL_UPDATE_INTERVAL_MS as u128 {
+                            let level = calculate_audio_level(&level_sample_buffer);
+                            if let Some(ref callback) = level_callback {
+                                callback(level);
+                            }
+                            level_sample_buffer.clear();
+                            last_level_update = std::time::Instant::now();
+                        }
+                    }
                 }
             }
             Err(mpsc::RecvTimeoutError::Timeout) => {
@@ -295,12 +351,14 @@ fn run_recording_loop(
             match cmd {
                 RecorderCommand::Start => {
                     buffer.clear();
+                    level_sample_buffer.clear();
                     is_recording = true;
                     log::debug!("Recording started in worker");
                 }
                 RecorderCommand::Stop(reply_tx) => {
                     is_recording = false;
                     let samples = std::mem::take(&mut buffer);
+                    level_sample_buffer.clear();
                     log::debug!("Recording stopped in worker, captured {} samples", samples.len());
                     let _ = reply_tx.send(samples);
                 }

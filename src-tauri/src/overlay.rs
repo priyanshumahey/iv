@@ -17,8 +17,8 @@ use tauri::WebviewUrl;
 #[cfg(target_os = "macos")]
 use tauri_nspanel::{tauri_panel, CollectionBehavior, PanelBuilder, PanelLevel, StyleMask};
 
-const OVERLAY_WIDTH: f64 = 200.0;
-const OVERLAY_HEIGHT: f64 = 50.0;
+const OVERLAY_WIDTH: f64 = 180.0;
+const OVERLAY_HEIGHT: f64 = 48.0;
 const OVERLAY_TOP_OFFSET: f64 = 20.0;
 const OVERLAY_BOTTOM_OFFSET: f64 = 60.0;
 

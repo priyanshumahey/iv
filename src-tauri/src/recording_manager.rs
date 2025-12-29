@@ -151,6 +151,13 @@ impl RecordingManager {
 
         // Create and open the recorder
         let mut recorder = AudioRecorder::new()?;
+
+        // Set up audio level callback to emit events to the frontend
+        let app_handle = self.app_handle.clone();
+        recorder.set_audio_level_callback(move |level| {
+            let _ = app_handle.emit("audio-level", level);
+        });
+
         recorder.open(None)?;
         recorder.start()?;
 

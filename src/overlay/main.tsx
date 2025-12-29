@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom/client';
 import { listen } from '@tauri-apps/api/event';
+import { Waveform } from './Waveform';
 import './overlay.css';
 
 type OverlayState = 'hidden' | 'recording' | 'transcribing';
 
 function RecordingOverlay() {
     const [state, setState] = useState<OverlayState>('hidden');
+    const [audioLevel, setAudioLevel] = useState(0);
 
     useEffect(() => {
         // Listen for state changes from the backend
@@ -19,16 +21,37 @@ function RecordingOverlay() {
         };
     }, []);
 
+    useEffect(() => {
+        // Listen for audio level updates from the backend
+        const unlisten = listen<number>('audio-level', (event) => {
+            setAudioLevel(event.payload);
+        });
+
+        return () => {
+            unlisten.then((fn) => fn());
+        };
+    }, []);
+
     if (state === 'hidden') {
         return null;
     }
 
-    const statusText = state === 'recording' ? 'Recording...' : 'Transcribing...';
+    const isRecording = state === 'recording';
+    const isTranscribing = state === 'transcribing';
 
     return (
         <div className={`overlay-container ${state}`}>
-            <div className={`indicator ${state}`} />
-            <span className="status-text">{statusText}</span>
+            <div className="waveform-wrapper">
+                <Waveform
+                    audioLevel={audioLevel}
+                    isActive={isRecording}
+                    isProcessing={isTranscribing}
+                    barWidth={3}
+                    barGap={1}
+                    sensitivity={2.5}
+                    fadeWidth={14}
+                />
+            </div>
         </div>
     );
 }
