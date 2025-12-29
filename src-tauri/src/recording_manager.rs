@@ -141,11 +141,12 @@ impl RecordingManager {
         let mut state = self.state.lock().unwrap();
 
         if *state != ManagerState::Idle {
-            log::warn!(
-                "Cannot start recording: already in {:?} state. Wait for current operation to complete.",
-                *state
-            );
-            return Ok(());
+            let current_state = state.clone();
+            drop(state); // Release lock before returning
+            return Err(anyhow::anyhow!(
+                "Cannot start recording: currently {:?}. Please wait for the current operation to complete.",
+                current_state
+            ));
         }
 
         // Create and open the recorder

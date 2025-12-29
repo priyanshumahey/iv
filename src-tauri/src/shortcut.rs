@@ -54,26 +54,19 @@ fn handle_shortcut_event(app: &AppHandle, state: ShortcutState) {
 
     match state {
         ShortcutState::Pressed => {
-            log::debug!("Shortcut pressed - starting recording");
+            log::debug!("Shortcut pressed - attempting to start recording");
 
-            // Update tray icon
-            tray::change_tray_icon(app, TrayIconState::Recording);
-
-            // Show recording overlay
-            overlay::show_overlay(app, OverlayState::Recording);
-
-            // Play start sound
-            audio_feedback::play_feedback_sound(app, SoundType::Start);
-
-            // Start recording
+            // Try to start recording first - this will fail if we're currently transcribing
             if let Err(e) = manager.start_recording() {
-                log::error!("Failed to start recording: {}", e);
-                let _ = app.emit(events::TRANSCRIPTION_ERROR, e.to_string());
-
-                // Reset UI on error
-                tray::change_tray_icon(app, TrayIconState::Idle);
-                overlay::hide_overlay(app);
+                log::warn!("Cannot start recording: {}", e);
+                // Don't update UI or play sounds if we can't start recording
+                return;
             }
+
+            // Only update UI after recording has successfully started
+            tray::change_tray_icon(app, TrayIconState::Recording);
+            overlay::show_overlay(app, OverlayState::Recording);
+            audio_feedback::play_feedback_sound(app, SoundType::Start);
         }
         ShortcutState::Released => {
             log::debug!("Shortcut released - stopping recording");
