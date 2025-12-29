@@ -3,10 +3,19 @@
 use crate::input;
 use crate::settings::{self, OverlayPosition};
 use log::debug;
-use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize, WebviewWindowBuilder};
+use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize};
+
+#[cfg(not(target_os = "macos"))]
+use tauri::WebviewWindowBuilder;
 
 #[cfg(target_os = "windows")]
 use tauri::WebviewWindow;
+
+#[cfg(target_os = "macos")]
+use tauri::WebviewUrl;
+
+#[cfg(target_os = "macos")]
+use tauri_nspanel::{tauri_panel, CollectionBehavior, PanelBuilder, PanelLevel, StyleMask};
 
 const OVERLAY_WIDTH: f64 = 200.0;
 const OVERLAY_HEIGHT: f64 = 50.0;
@@ -20,6 +29,17 @@ pub enum OverlayState {
     Hidden,
     Recording,
     Transcribing,
+}
+
+#[cfg(target_os = "macos")]
+tauri_panel! {
+    panel!(RecordingOverlayPanel {
+        config: {
+            can_become_key_window: false,
+            can_become_main_window: false,
+            is_floating_panel: true
+        }
+    })
 }
 
 /// Get the monitor that contains the mouse cursor
@@ -88,7 +108,8 @@ fn calculate_overlay_position(app_handle: &AppHandle) -> Option<(f64, f64)> {
     Some((x, y))
 }
 
-/// Create the recording overlay window (hidden by default)
+/// Create the recording overlay window (hidden by default) - Windows/Linux
+#[cfg(not(target_os = "macos"))]
 pub fn create_recording_overlay(app_handle: &AppHandle) {
     let (x, y) = calculate_overlay_position(app_handle).unwrap_or((100.0, 100.0));
 
@@ -124,6 +145,47 @@ pub fn create_recording_overlay(app_handle: &AppHandle) {
         }
         Err(e) => {
             log::error!("Failed to create recording overlay window: {}", e);
+        }
+    }
+}
+
+/// Create the recording overlay panel (hidden by default) - macOS
+/// Uses NSPanel with proper CollectionBehavior to appear on all spaces and desktops
+#[cfg(target_os = "macos")]
+pub fn create_recording_overlay(app_handle: &AppHandle) {
+    let (x, y) = calculate_overlay_position(app_handle).unwrap_or((100.0, 100.0));
+
+    match PanelBuilder::<_, RecordingOverlayPanel>::new(app_handle, "recording_overlay")
+        .url(WebviewUrl::App("src/overlay/index.html".into()))
+        .title("Recording")
+        .position(tauri::Position::Logical(tauri::LogicalPosition { x, y }))
+        .size(tauri::Size::Logical(tauri::LogicalSize {
+            width: OVERLAY_WIDTH,
+            height: OVERLAY_HEIGHT,
+        }))
+        .level(PanelLevel::Status)
+        .has_shadow(false)
+        .transparent(true)
+        .corner_radius(0.0)
+        .hides_on_deactivate(false)
+        .works_when_modal(true)
+        .style_mask(StyleMask::empty().nonactivating_panel())
+        .collection_behavior(
+            CollectionBehavior::new()
+                .can_join_all_spaces()
+                .full_screen_auxiliary()
+                .stationary()
+        )
+        .no_activate(true)
+        .with_window(|w| w.decorations(false).transparent(true))
+        .build()
+    {
+        Ok(panel) => {
+            let _ = panel.hide();
+            debug!("Recording overlay panel created (macOS NSPanel)");
+        }
+        Err(e) => {
+            log::error!("Failed to create recording overlay panel: {}", e);
         }
     }
 }

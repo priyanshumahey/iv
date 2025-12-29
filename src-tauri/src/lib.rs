@@ -152,6 +152,17 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_clipboard_manager::init())
+        .plugin({
+            #[cfg(target_os = "macos")]
+            {
+                tauri_nspanel::init()
+            }
+            #[cfg(not(target_os = "macos"))]
+            {
+                // Dummy plugin for non-macOS platforms
+                tauri::plugin::Builder::new("nspanel-noop").build()
+            }
+        })
         .setup(|app| {
             log::info!("App starting up...");
 
