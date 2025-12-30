@@ -20,7 +20,7 @@ use tauri_nspanel::{tauri_panel, CollectionBehavior, PanelBuilder, PanelLevel, S
 const OVERLAY_WIDTH: f64 = 180.0;
 const OVERLAY_HEIGHT: f64 = 48.0;
 const OVERLAY_TOP_OFFSET: f64 = 20.0;
-const OVERLAY_BOTTOM_OFFSET: f64 = 60.0;
+const OVERLAY_BOTTOM_OFFSET: f64 = 0.0;
 
 /// Overlay states
 #[derive(Clone, Debug, serde::Serialize)]
