@@ -45,9 +45,28 @@ tauri_panel! {
 /// Get the monitor that contains the mouse cursor
 fn get_monitor_with_cursor(app_handle: &AppHandle) -> Option<tauri::Monitor> {
     if let Some(mouse_location) = input::get_cursor_position(app_handle) {
+        debug!(
+            "Mouse cursor position: ({}, {})",
+            mouse_location.0, mouse_location.1
+        );
         if let Ok(monitors) = app_handle.available_monitors() {
             for monitor in monitors {
+                let pos = monitor.position();
+                let size = monitor.size();
+                let monitor_name = monitor
+                    .name()
+                    .map(|s| s.as_str())
+                    .unwrap_or("unknown");
+                debug!(
+                    "Checking monitor '{}': pos=({}, {}), size={}x{}",
+                    monitor_name,
+                    pos.x,
+                    pos.y,
+                    size.width,
+                    size.height
+                );
                 if is_mouse_within_monitor(mouse_location, monitor.position(), monitor.size()) {
+                    debug!("Mouse is within monitor '{}'", monitor_name);
                     return Some(monitor);
                 }
             }
@@ -55,6 +74,7 @@ fn get_monitor_with_cursor(app_handle: &AppHandle) -> Option<tauri::Monitor> {
     }
 
     // Fallback to primary monitor
+    debug!("Falling back to primary monitor");
     app_handle.primary_monitor().ok().flatten()
 }
 

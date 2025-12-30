@@ -1,16 +1,51 @@
 //! Input handling and keyboard simulation
 
-use enigo::{Enigo, Key, Keyboard, Mouse, Settings};
+use enigo::{Enigo, Key, Keyboard, Settings};
 use tauri::AppHandle;
+
+#[cfg(not(target_os = "macos"))]
+use enigo::Mouse;
 
 pub fn new_enigo() -> Result<Enigo, String> {
     Enigo::new(&Settings::default()).map_err(|e| format!("Failed to initialize Enigo: {}", e))
 }
 
-/// Get the current mouse cursor position using the managed Enigo instance.
+/// Get the current mouse cursor position.
+/// On macOS, uses NSEvent::mouseLocation for accurate multi-monitor coordinates.
+/// Returns None if getting the location fails.
+#[cfg(target_os = "macos")]
+pub fn get_cursor_position(_app_handle: &AppHandle) -> Option<(i32, i32)> {
+    use tauri_nspanel::objc2_app_kit::{NSEvent, NSScreen};
+    use tauri_nspanel::objc2_foundation::MainThreadMarker;
+
+    // NSEvent::mouseLocation returns coordinates in screen coordinates
+    // where (0,0) is bottom-left of the primary screen
+    let mouse_location = NSEvent::mouseLocation();
+
+    // Get the primary screen height to convert from bottom-left origin to top-left origin
+    let mtm = MainThreadMarker::new()?;
+    let screens = NSScreen::screens(mtm);
+
+    if screens.is_empty() {
+        return None;
+    }
+
+    // Primary screen is first in the array
+    let primary_screen = screens.firstObject()?;
+    let primary_frame = primary_screen.frame();
+    let primary_height = primary_frame.size.height;
+
+    // Convert from Cocoa coordinates (bottom-left origin) to screen coordinates (top-left origin)
+    let x = mouse_location.x as i32;
+    let y = (primary_height - mouse_location.y) as i32;
+
+    Some((x, y))
+}
+
+/// Get the current mouse cursor position using Enigo.
 /// Returns None if the state is not available or if getting the location fails.
-pub fn get_cursor_position(app_handle: &AppHandle) -> Option<(i32, i32)> {
-    let _ = app_handle;
+#[cfg(not(target_os = "macos"))]
+pub fn get_cursor_position(_app_handle: &AppHandle) -> Option<(i32, i32)> {
     let enigo = new_enigo().ok()?;
     enigo.location().ok()
 }
